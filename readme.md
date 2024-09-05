@@ -1,4 +1,4 @@
-#![alt text](icon.png) Surf Shelter: Autonomous Website Content Moderation via Machine Learning
+# Surf Shelter: Autonomous Website Content Moderation via Machine Learning
 
 **Surf Shelter** is a Chrome Web Extension powered by Machine Learning to autonomously moderate website content. It categorizes websites as **click-fraud**, **pay-fraud**, **malicious**, or **safe**, providing real-time protection for users as they browse the internet.
 
