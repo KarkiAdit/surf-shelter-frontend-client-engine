@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { PredictionInfo, PredictionResponseMessage } from '../types/common';
 import GaugeChart from './gaugeChart';
 import SummaryDashboard from './summaryDashboard';
+import LoadingSpinner from './loadingSpinner';
 
 const Popup: React.FC = () => {
    const [prediction, setPrediction] = useState<PredictionInfo | null>(null);
@@ -59,8 +60,11 @@ const Popup: React.FC = () => {
    return (
        <div className="w-[500px] h-[600px] p-8 bg-black bg-opacity-90 backdrop-filter backdrop-blur-xl text-gray-100 shadow-2xl overflow-auto" style={{ fontFamily: '"Noto Sans", sans-serif', fontWeight: 500, fontStyle: 'normal' }}>
            <h1 className="text-4xl font-bold uppercase text-center">Surf Shelter's Prediction</h1>
-           {renderPrediction()}
-           {prediction && !isLoading && !error && <SummaryDashboard prediction={prediction} />}
+           {isLoading ? (<LoadingSpinner />) 
+           : <>
+                {renderPrediction()}
+                {prediction && !error && <SummaryDashboard prediction={prediction} />}
+           </>}
        </div>
    );
 };
