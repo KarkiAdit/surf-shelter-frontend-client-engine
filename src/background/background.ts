@@ -6,27 +6,38 @@ chrome.runtime.onMessage.addListener(
             console.log('This message did not come from the content script.');
             return;
         }
-        // Set loading status in local storage to inform the popup
-        chrome.storage.local.set({ isLoading: true });
-        // Call predictWebsiteNature and handle the prediction asynchronously
-        predictWebsiteNature(message.pageData).then(prediction => {
-            // Save prediction result to local storage
-            chrome.storage.local.set({ prediction, isLoading: false }, () => {
-                console.log('Prediction stored:', prediction);
-                // Notify the popup to update with the new prediction
-                chrome.runtime.sendMessage({ type: 'UPDATE_POPUP', predictionInfo: prediction });
-            });
-            sendResponse({ success: true, status: 200 });
-        }).catch(error => {
-            console.error("Prediction failed:", error);
-            // Set error status in local storage
-            chrome.storage.local.set({ isLoading: false, prediction: null });
-            sendResponse({ success: false, status: 500 });
+        const url = message.pageData.url;
+        // Check if there’s already a cached prediction for this URL
+        chrome.storage.local.get(url, (result) => {
+            if (result[url]) {
+                // Use the cached prediction
+                const cachedPrediction = result[url];
+                chrome.storage.local.set({ prediction: cachedPrediction, isLoading: false }, () => {
+                    chrome.runtime.sendMessage({ type: 'UPDATE_POPUP', predictionInfo: cachedPrediction });
+                });
+                sendResponse({ success: true, status: 200 });
+            } else {
+                // No cached prediction; proceed with making Prediction Engine call
+                chrome.storage.local.set({ isLoading: true });
+                predictWebsiteNature(message.pageData).then(prediction => {
+                    // Cache the prediction result using the URL as the key
+                    chrome.storage.local.set({ [url]: prediction, prediction, isLoading: false }, () => {
+                        console.log('Prediction stored and cached:', prediction);
+                        // Notify the popup to update with the new prediction
+                        chrome.runtime.sendMessage({ type: 'UPDATE_POPUP', predictionInfo: prediction });
+                    });
+                    sendResponse({ success: true, status: 200 });
+                }).catch(error => {
+                    console.error("Prediction failed:", error);
+                    chrome.storage.local.set({ isLoading: false, prediction: null });
+                    sendResponse({ success: false, status: 500 });
+                });
+            }
         });
-        // Return true to indicate that the response will be sent asynchronously
-        return true;
+
+        return true; // To indicate that the response will be sent asynchronously
     }
- );
+);
 
  async function fetchWithRetry(url: string, options: RequestInit, retries: number = 3, delay: number = 2000): Promise<Response> {
     for (let i = 0; i < retries; i++) {
