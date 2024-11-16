@@ -64,7 +64,7 @@ const Popup: React.FC = () => {
            {error ? (<p className="text-red-400 mt-6 text-2xl">{error}</p>) : isLoading ? 
            (<LoadingSpinner />) : (
                 <>
-                    {prediction && (
+                    {prediction &&  (
                         <>
                             {renderPrediction()}
                             <SummaryDashboard prediction={prediction} />
