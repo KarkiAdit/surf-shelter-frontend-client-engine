@@ -1,5 +1,11 @@
 import { PageData, PredictionInfo, PredictionRequestMessage, ResponseSuccess, PredictionResponseMessage } from "../types/common";
 
+// The default update message to trigger popup
+const defaultPredMsg: PredictionResponseMessage = {
+    type: 'UPDATE_POPUP',
+    predictionInfo: null,
+    error: null,
+};
 // Clear the cache for every new installation or update of the extension
 chrome.runtime.onInstalled.addListener(() => {
     // Clear the cache on installation
@@ -57,20 +63,14 @@ function handlePredictionRequest(url: string, sendResponse: (response?: Response
         const cache = result.cache || {}; // Retrieve or initialize cache
         if (url in cache) {
             // Use cached prediction
-            const cachedPrediction = cache[url];
+            const cachedPrediction: PredictionInfo = cache[url];
             chrome.storage.local.set(
-                { prediction: cachedPrediction, isLoading: false },
+                { prediction: cachedPrediction, isLoading: false, error: null },
                 () => {
-                    if (chrome.runtime.lastError) {
-                        console.error("Failed to update prediction from cache:", chrome.runtime.lastError.message);
-                        sendResponse({ success: false, status: 500 });
-                    } else {
-                        chrome.runtime.sendMessage({
-                            type: 'UPDATE_POPUP',
-                            predictionInfo: cachedPrediction,
-                        });
-                        sendResponse({ success: true, status: 200 });
-                    }
+                    console.log("Cached msg", cachedPrediction);
+                    console.log("URL", url);
+                    chrome.runtime.sendMessage({...defaultPredMsg, predictionInfo: cachedPrediction});
+                    sendResponse({ success: true, status: 200 });
                 }
             );
         } else {
@@ -84,11 +84,6 @@ function handlePredictionRequest(url: string, sendResponse: (response?: Response
 
 // Helper to handle Prediction API calls and popup state changes
 function processPrediction(url: string, cache: Record<string, PredictionInfo>, sendResponse: (response?: ResponseSuccess) => void) {
-    const defaultPredMsg: PredictionResponseMessage = {
-        type: 'UPDATE_POPUP',
-        predictionInfo: null,
-        error: null,
-    };
     const middleware = (response: PredictionInfo | Error) => {
         // Handle server cold shutdowns errors
         if (response instanceof Error) {
@@ -114,13 +109,8 @@ function processPrediction(url: string, cache: Record<string, PredictionInfo>, s
             // Update the cache and save it
             cache[url] = prediction;
             chrome.storage.local.set(
-                { cache, isLoading: false, error: null },
+                { cache, prediction, isLoading: false, error: null },
                 () => {
-                    if (chrome.runtime.lastError) {
-                        console.error("Failed to update cache:", chrome.runtime.lastError.message);
-                        sendResponse({ success: false, status: 500 });
-                        return;
-                    }
                     console.log('Prediction stored and cached:', prediction);
                     chrome.runtime.sendMessage({ ...defaultPredMsg, predictionInfo: prediction });
                     sendResponse({ success: true, status: 200 });
@@ -129,7 +119,7 @@ function processPrediction(url: string, cache: Record<string, PredictionInfo>, s
         })
         .catch((error) => {
             console.error("Prediction failed:", error);
-            chrome.storage.local.set({ isLoading: true, error: error.message }, () => {
+            chrome.storage.local.set({ isLoading: false, error: error.message }, () => {
                 chrome.runtime.sendMessage({ ...defaultPredMsg, error: error.message });
                 sendResponse({ success: false, status: 500 });
             });
@@ -153,18 +143,22 @@ async function fetchWithRetry(url: string, options: RequestInit, retries: number
     throw new Error(`Failed to fetch ${url} after ${retries} retries`);
 }
 
-async function predictWebsiteNature(url: string): Promise<PredictionInfo | Error> {
+async function predictWebsiteNature(url: string): Promise<PredictionInfo> {
     const predictionUrl = `https://prediction-engine-470259027402.us-central1.run.app/prediction/predict`;
     const options: RequestInit = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: url }),
     };
-
-    const response = await fetchWithRetry(predictionUrl, options, 3, 3000);
-    if (!response.ok) {
-        throw new Error(`Server responded with status: ${response.status}`);
+    try {
+        const response = await fetchWithRetry(predictionUrl, options, 3, 3000);
+        if (!response.ok) {
+            throw new Error(`Server responded with status: ${response.status}`);
+        }
+        const prediction: PredictionInfo = await response.json();
+        return prediction;
+    } catch (error) {
+        console.error("Error while predicting:", error);
+        throw error; // Re-throw the error to be handled by the caller
     }
-    const prediction: PredictionInfo = await response.json();
-    return prediction;
 }

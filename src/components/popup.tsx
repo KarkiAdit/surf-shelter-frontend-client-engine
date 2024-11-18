@@ -19,14 +19,17 @@ const Popup: React.FC = () => {
     
        const handleMessage = (message: PredictionResponseMessage) => {
             if (message.type === 'UPDATE_POPUP') {
-                if (message.error) {
-                    setPrediction(null);
-                    setIsLoading(false);
-                    setError(message.error);
-                } else {
-                    setPrediction(message.predictionInfo)
+                console.log("Received message: ", message);
+                if (message.predictionInfo) {
+                    console.log("Setting prediction and clearing error/loading.");
+                    setPrediction({...message.predictionInfo});
                     setIsLoading(false);
                     setError(null);
+                } else {
+                    console.log("Setting error");
+                    setPrediction(null)
+                    setIsLoading(false);
+                    setError(message.error);
                 }
             }
         };
