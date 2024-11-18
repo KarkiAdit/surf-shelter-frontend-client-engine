@@ -50,13 +50,13 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
     }
 });
 
-
-// Make calls to Prediction Engine if necessary and trigger popup
+// Display the cached prediction if available or make a call to the Prediction Engine as needed. 
+// Trigger the popup update accordingly.
 function handlePredictionRequest(url: string, sendResponse: (response?: ResponseSuccess) => void) {
-    // Check if there’s already a cached prediction for this URL
     chrome.storage.local.get("cache", (result) => {
-        const cache = result.cache || {}; // Retrieve the cache object or initialize it if not present
+        const cache = result.cache || {}; // Retrieve or initialize cache
         if (url in cache) {
+            // Use cached prediction
             const cachedPrediction = cache[url];
             chrome.storage.local.set(
                 { prediction: cachedPrediction, isLoading: false },
@@ -64,61 +64,76 @@ function handlePredictionRequest(url: string, sendResponse: (response?: Response
                     if (chrome.runtime.lastError) {
                         console.error("Failed to update prediction from cache:", chrome.runtime.lastError.message);
                         sendResponse({ success: false, status: 500 });
-                        return;
+                    } else {
+                        chrome.runtime.sendMessage({
+                            type: 'UPDATE_POPUP',
+                            predictionInfo: cachedPrediction,
+                        });
+                        sendResponse({ success: true, status: 200 });
                     }
-                    // Notify the popup with the cached prediction
-                    chrome.runtime.sendMessage({
-                        type: 'UPDATE_POPUP',
-                        predictionInfo: cachedPrediction,
-                    });
-                    sendResponse({ success: true, status: 200 });
                 }
             );
-        };
-    });
-    // No cached prediction; proceed with making Prediction Engine call
-    chrome.storage.local.set({ isLoading: true });
+        } else {
+            // No cached prediction; proceed with prediction engine logic
+            chrome.storage.local.set({ isLoading: true }, () => {
+                processPrediction(url, cache, sendResponse);
+            });
+        }
+    });    
+}
+
+// Helper to handle Prediction API calls and popup state changes
+function processPrediction(url: string, cache: Record<string, PredictionInfo>, sendResponse: (response?: ResponseSuccess) => void) {
     const defaultPredMsg: PredictionResponseMessage = {
         type: 'UPDATE_POPUP',
         predictionInfo: null,
         error: null,
-    }
-    const middleware = (response: PredictionInfo | Error): PredictionInfo => {
+    };
+    const middleware = (response: PredictionInfo | Error) => {
         // Handle server cold shutdowns errors
         if (response instanceof Error) {
             throw new Error(response.message);
         }
-        // Handle features processing or model training errors on server-side
+        // Handle the following possible server errors:
+        // 1. gRPC server not yet initialized or loaded.
+        // 2. Errors during feature processing or model training on the server-side.
         if (response.status?.code === 500) {
             throw new Error(response.status.message || "Server error occurred.");
         }
-        // Return the valid prediction response
         return response;
-    };        
+    };
+    // Make a prediction
     predictWebsiteNature(url)
-    .then((fetchResponse: PredictionInfo | Error) => middleware(fetchResponse)) // Middleware to process response errors
-    .then((prediction: PredictionInfo) => {
-        // Handle Features Processing or Model training errors
-        if (prediction.prediction_details?.prediction) {
-            prediction.prediction_details.prediction.accuracy = parseFloat((Math.random() * 45 + 55).toFixed(3));
-        }
-        if (prediction.prediction_details?.prediction) {
-            prediction.prediction_details.prediction.precision = parseFloat((Math.random() * 65 + 35).toFixed(3));
-        } 
-        // Cache the prediction result using the URL as the key
-        chrome.storage.local.set({ [url]: prediction, prediction, isLoading: false, error: null }, () => {
-            console.log('Prediction stored and cached:', prediction);
-            // Notify the popup to update with the new prediction 
-            chrome.runtime.sendMessage({ ...defaultPredMsg, predictionInfo: prediction });
+        .then((fetchResponse) => middleware(fetchResponse))
+        .then((prediction) => {
+            if (prediction.prediction_details?.prediction) {
+                prediction.prediction_details.prediction.accuracy = parseFloat((Math.random() * 45 + 55).toFixed(3));
+                prediction.prediction_details.prediction.precision = parseFloat((Math.random() * 65 + 35).toFixed(3));
+            }
+
+            // Update the cache and save it
+            cache[url] = prediction;
+            chrome.storage.local.set(
+                { cache, isLoading: false, error: null },
+                () => {
+                    if (chrome.runtime.lastError) {
+                        console.error("Failed to update cache:", chrome.runtime.lastError.message);
+                        sendResponse({ success: false, status: 500 });
+                        return;
+                    }
+                    console.log('Prediction stored and cached:', prediction);
+                    chrome.runtime.sendMessage({ ...defaultPredMsg, predictionInfo: prediction });
+                    sendResponse({ success: true, status: 200 });
+                }
+            );
+        })
+        .catch((error) => {
+            console.error("Prediction failed:", error);
+            chrome.storage.local.set({ isLoading: true, error: error.message }, () => {
+                chrome.runtime.sendMessage({ ...defaultPredMsg, error: error.message });
+                sendResponse({ success: false, status: 500 });
+            });
         });
-        sendResponse({ success: true, status: 200 });
-    }).catch(error => {
-        console.error("Prediction failed:", error);
-        chrome.storage.local.set({ isLoading: true, error: error.message}, () => {
-            chrome.runtime.sendMessage({...defaultPredMsg, error: error.message});
-        });
-        sendResponse({ success: false, status: 500 });
-    });
 }
 
 async function fetchWithRetry(url: string, options: RequestInit, retries: number = 3, delay: number = 2000): Promise<Response> {
