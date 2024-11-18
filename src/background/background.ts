@@ -1,4 +1,4 @@
-import { PageData, PredictionInfo, PredictionRequestMessage, ResponseSuccess, PredictionResponseMessage } from "../types/common";
+import { PageData, PredictionInfo, PredictionRequestMessage, ResponseSuccess, PredictionResponseMessage, StateUpdateMessage } from "../types/common";
 
 // The default update message to trigger popup
 const defaultPredMsg: PredictionResponseMessage = {
@@ -6,6 +6,13 @@ const defaultPredMsg: PredictionResponseMessage = {
     predictionInfo: null,
     error: null,
 };
+// The default loading state change message to trigger popup
+const defaultLoadMsg: StateUpdateMessage = {
+    type: 'STATE_UPDATE',
+    isLoading: false,
+    error: null,
+};
+
 // Clear the cache for every new installation or update of the extension
 chrome.runtime.onInstalled.addListener(() => {
     // Clear the cache on installation
@@ -49,7 +56,19 @@ chrome.runtime.onMessage.addListener(
 
 // Listen for tab changes and fetch predictions for the active tab's URL
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
-    console.log("Tab Activated:", activeInfo)
+    console.log("Tab Activated:", activeInfo);
+    // Set loading to true and error to null in the storage
+    chrome.storage.local.set({ isLoading: true, error: null }, () => {
+        console.log("Loading state set to true and error set to null in storage");
+    });
+    // Notify the popup about the loading state and reset error
+    chrome.runtime.sendMessage({ ...defaultLoadMsg }, (response) => {
+        if (response?.status === 'success') {
+            console.log("Popup acknowledged the message.");
+        } else {
+            console.warn("Popup did not acknowledge or an error occurred.");
+        }
+    });
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab && tab.url) {
         handlePredictionRequest(tab.url, () => {});
@@ -76,7 +95,15 @@ function handlePredictionRequest(url: string, sendResponse: (response?: Response
         } else {
             // No cached prediction; proceed with prediction engine logic
             chrome.storage.local.set({ isLoading: true }, () => {
-                processPrediction(url, cache, sendResponse);
+                const spinnerInterval = setInterval(() => {
+                    console.log("Loading spinner is active...");
+                }, 1000);
+                // Stop the spinner after 4 seconds and proceed with prediction
+                setTimeout(() => {
+                    clearInterval(spinnerInterval);
+                    // Call the prediction engine
+                    processPrediction(url, cache, sendResponse);
+                }, 4000)
             });
         }
     });    

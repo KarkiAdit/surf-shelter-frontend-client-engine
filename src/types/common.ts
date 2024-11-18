@@ -1,5 +1,5 @@
 export interface Type {
-    type: 'PAGE_DATA' | 'UPDATE_POPUP';
+    type: 'PAGE_DATA' | 'UPDATE_POPUP' | 'STATE_UPDATE';
 }
 
 export interface ResponseSuccess {
@@ -52,5 +52,11 @@ export interface PredictionRequestMessage {
 export interface PredictionResponseMessage {
     type: Type['type'];
     predictionInfo: PredictionInfo | null;
+    error: string | null;
+}
+
+export interface StateUpdateMessage {
+    type: Type['type'];
+    isLoading: boolean;
     error: string | null;
 }

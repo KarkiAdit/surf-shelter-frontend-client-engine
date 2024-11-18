@@ -4,7 +4,8 @@ import ClipLoader from 'react-spinners/ClipLoader';
 const LoadingSpinner: React.FC = () => {
     const textOptions = [
         "Predicting",
-        "Surf Shelter's Now Analyzing"
+        "Surf Shelter's Now Analyzing",
+        "Connecting to Prediction engine",
       ];
     const [text, setText] = useState(textOptions[0]);
     useEffect(() => {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { PredictionInfo, PredictionResponseMessage } from '../types/common';
+import { PredictionInfo, PredictionResponseMessage, StateUpdateMessage } from '../types/common';
 import GaugeChart from './gaugeChart';
 import SummaryDashboard from './summaryDashboard';
 import LoadingSpinner from './loadingSpinner';
@@ -17,9 +17,8 @@ const Popup: React.FC = () => {
             setError(errorMessage)
         });
     
-       const handleMessage = (message: PredictionResponseMessage) => {
+       const handlePredictionMessage = (message: PredictionResponseMessage) => {
             if (message.type === 'UPDATE_POPUP') {
-                console.log("Received message: ", message);
                 if (message.predictionInfo) {
                     console.log("Setting prediction and clearing error/loading.");
                     setPrediction({...message.predictionInfo});
@@ -33,10 +32,18 @@ const Popup: React.FC = () => {
                 }
             }
         };
-
-       chrome.runtime.onMessage.addListener(handleMessage);
+        const handleStateChangeMessage = (message: StateUpdateMessage) => {
+            if (message.type === 'STATE_UPDATE') {
+                setError(null)
+                setPrediction(null)
+                setIsLoading(true)
+            }
+        };
+       chrome.runtime.onMessage.addListener(handlePredictionMessage);
+       chrome.runtime.onMessage.addListener(handleStateChangeMessage);
        return () => {
-           chrome.runtime.onMessage.removeListener(handleMessage);
+           chrome.runtime.onMessage.removeListener(handlePredictionMessage);
+           chrome.runtime.onMessage.removeListener(handleStateChangeMessage);
        };
    }, []);
 
