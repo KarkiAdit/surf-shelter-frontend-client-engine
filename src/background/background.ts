@@ -146,7 +146,7 @@ function processPrediction(url: string, cache: Record<string, PredictionInfo>, s
         })
         .catch((error) => {
             console.error("Prediction failed:", error);
-            chrome.storage.local.set({ isLoading: false, error: error.message }, () => {
+            chrome.storage.local.set({ prediction: null, isLoading: false, error: error.message }, () => {
                 chrome.runtime.sendMessage({ ...defaultPredMsg, error: error.message });
                 sendResponse({ success: false, status: 500 });
             });
