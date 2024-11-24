@@ -1,51 +1,81 @@
-# Surf Shelter: Autonomous Website Content Moderation via Machine Learning
+# Surf Shelter 🔍
 
-**Surf Shelter** is a Chrome Web Extension powered by Machine Learning to autonomously moderate website content. It categorizes websites as **click-fraud**, **pay-fraud**, **malicious**, or **safe**, providing real-time protection for users as they browse the internet.
+Surf Shelter is an **intelligent, modular system** designed to classify and filter harmful websites, including those associated with click fraud, pay fraud, and malicious activities ⚠️. It analyzes attributes such as URLs, metadata, and scripts to detect and flag harmful websites (the current iteration only focuses on URLs). The system is scalable and adaptable, seamlessly integrating browser extensions, data collectors, and machine-learning components for real-time detection and ongoing model improvement 🚀🚀🚀.
 
-## 🚀 Overview
+The following diagram provides a high-level overview of the **system's design** architecture:
 
-**Surf Shelter** uses a combination of frontend UI, background processing, and machine learning to analyze websites and provide users with instant feedback on their content safety. The extension relies on a **Frontend Client Engine** for the UI, communication with a **Data Server Engine**, and seamless data sharing between different extension components using the **Chrome Extension API**.
+![System Architecture](./public/images/system_design.png)
 
-## 🛠 Frontend Client Engine
+**💡 Main Components**
+1. [Frontend Client](https://github.com/KarkiAdit/surf-shelter-frontend-client-engine/blob/main/readme.md)
+2. [Data Server Engine](https://github.com/KarkiAdit/surf-shelter-data-server-engine/blob/master/README.md)
+3. [Model Processor Engine](https://github.com/KarkiAdit/surf-shelter-model-processor-engine/blob/master/Readme.md)
 
-### Components
+## 🌟 Frontend Client Overview
 
-1. **UI Logic**:
-   - Built with **React** and styled with **Tailwind CSS**, the frontend UI presents users with real-time feedback on the website's safety status (e.g., malicious, click-fraud, safe).
-   - The UI dynamically updates based on the data sent from the backend engine.
+The Frontend Client Engine serves as the user-facing component of Surf Shelter, implemented as a **Chrome Web Extension.** It performs three fundamental functions:
+- ***Retrieving URLs from active browser tabs.***
+- ***Sending URLs to the Prediction Engine for analysis.***
+- ***Displaying predictions with relevant metrics (e.g., accuracy and p-value) in a user-friendly interface.***
 
-2. **Data Server Engine**:
-   - Part of the Frontend Client, the **Data Server Engine** acts as the bridge between the UI and the ML engine.
-   - It processes data received from the **contentScript.ts**, forwards it to the ML engine, applies the latest prediction models, and returns the results to the frontend for display.
+## ✨ Features
 
-3. **Background Scripting (contentScript.ts & background.ts)**:
-   - **`contentScript.ts`** extracts website data from the active page and sends it to the backend for analysis.
-   - **`background.ts`** handles data processing and communication between the content script and the ML engine.
+- **URL Retrieval and Prediction**: Fetches the active tab's URL and triggers real-time analysis using the [Prediction Engine API](https://github.com/KarkiAdit/surf-shelter-data-server-engine/blob/4b84d31e18fec76e3b81127aa607bee9489365aa/prediction-engine/app/routes.py#L9).
+- **Caching Mechanism**: [Local storage](https://github.com/KarkiAdit/surf-shelter-frontend-client-engine/blob/727dfd656fd241e95a16df347f63e9872d1a9037/src/background/background.ts#L26) with Chrome.API.storage.
+- **State Management and UI Updates**: Leverages [React Hooks](https://github.com/KarkiAdit/surf-shelter-frontend-client-engine/blob/727dfd656fd241e95a16df347f63e9872d1a9037/src/components/popup.tsx#L7) (useEffect, useState) for dynamic popup updates.
+- **Error Handling**: Implements [middleware](https://github.com/KarkiAdit/surf-shelter-frontend-client-engine/blob/727dfd656fd241e95a16df347f63e9872d1a9037/src/background/background.ts#L129) in prediction logic to gracefully handle issues such as server outages, feature processing failures, and model training errors.
 
-4. **Chrome Extension API**:
-   - The **Chrome API** enables seamless communication between the **Frontend Client Engine**, background scripts, and active web pages.
-   - The API is used to send and receive data between different extension components and interact with the browser.
+## 🗂️ High-Level Design
 
-### ⚡ Vite for Bundling
+At a high level, the URL from each active tab is retrieved and sent to the background script. The background script employs **caching** and **state management** to decide whether to use a cached prediction or request a new one from the Prediction Engine. This design ensures optimal performance while reducing redundant API calls.
 
-The project is built using **Vite**, a modern build tool that provides fast development and efficient production builds. Vite bundles the project and outputs the **`dist`** folder, which contains all the files necessary to load the extension in the browser.
+The following flowchart illustrates the underlying process:
 
-- **Vite Development**: It provides a fast local development server, making it easy to see live updates during development.
-- **Vite Production**: Efficiently bundles the project into optimized production code for deployment in the **Chrome Web Store**.
+![Flowchart](./public/images/frontend_flow.png)
 
----
+## 🎥 Demo
 
-## 🛠️ Setup Instructions
+1. **Loading State**:
 
-### Prerequisites
+   ![Loading State](./public/images/sample_loading.png)
 
-- **Node.js** and **npm**
-- **Chrome Browser** for testing the extension
+2. **Errors**:
 
-### Installation
+   ![Error Handling](./public/images/sample_errors.png)
 
-1. Clone the repository:
+3. **Prediction Display**:
 
-```bash
-git clone https://github.com/KarkiAdit/surf-shelter-frontend-client-engine.git
-cd surf-shelter-frontend-client-engine
+   ![Prediction Display](./public/images/sample_prediction.png)
+
+## ⚙️ Developer Setup
+
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/KarkiAdit/surf-shelter-frontend-client-engine.git
+   ```
+2. **Install Dependencies**: Run the following command to install all required dependencies:
+   ```bash
+   npm install
+   ```
+3. **Bundle the Project**: Use Vite's configuration files to bundle the TypeScript project by running
+   ```bash
+   npm run build
+   ```
+
+4. **Build Output**: The bundled files will be available in the `dist` folder, ready for deployment or testing.
+
+5. **Run Locally (Optional)**: For local testing, run the project in development mode.
+   Open your browser's extension management page.
+   - Enable `Developer Mode`.
+   - Load the unpacked extension by selecting the `dist` folder.
+
+## 🧑‍💻 Technologies Used
+- **React:** For building the user interface.
+- **Tailwind CSS:** For styling and responsive design.
+- **TypeScript:** For type-safe and maintainable code.
+- **Vite:** For fast project bundling and development.
+- **Chrome Extension API:** For communication between the extension and active webpages.
+
+## 📚 Acknowledgments
+[Chrome Extensions Docs](https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world)<br>
+[Vite TS Docs](https://vite.dev/guide/)
